@@ -154,15 +154,27 @@ def save_frames(frames, output_dir="output_frames"):
     print(f"Saved {len(frames)} frames to {output_dir}/")
 
 def create_videos():
+    folder_name = "videos"
+    try:
+        os.mkdir(folder_name)
+        print(f"Created folder: {folder_name}")
+    except FileExistsError:
+        print(f"The folder '{folder_name}' already exists.")
+
     image_folder = r"..\Final Project\output_frames"
-    event_camera_video = r"..\Final Project\event_camera_video.mp4"
+    event_camera_video = r"..\Final Project\videos\event_camera_video.mp4"
     create_video_from_images(image_folder, event_camera_video)
 
     image_folder = r"..\Final Project\images"
-    images_video = r"..\Final Project\images_video.mp4"
+    images_video = r"..\Final Project\videos\images_video.mp4"
     create_video_from_images(image_folder, images_video)
 
-    merged_video_path = r"..\Final Project\merged_video.mp4"
+    # sharp video
+    image_folder = r"..\Final Project\enhanced_frames"
+    images_video = r"..\Final Project\videos\enhanced_frames_video.mp4"
+    create_video_from_images(image_folder, images_video)
+
+    merged_video_path = r"..\Final Project\videos\merged_video.mp4"
     return images_video, event_camera_video, merged_video_path
 
 
@@ -204,6 +216,52 @@ def merge_videos(video_path1, video_path2, output_video_path, frame_rate=30):
 
     print(f"merged video saved in: {output_video_path}")
 
+
+SIGMA = 1.5
+STRENGTH = 1.5
+
+
+def unsharp_mask(image_path, output_dir, file_name, sigma=1.5, strength=1.5):
+    image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+    blurred = cv2.GaussianBlur(image, (0, 0), sigma)
+    sharpened = cv2.addWeighted(image, 1 + strength, blurred, -strength, 0)
+    output_path = os.path.join(output_dir, f"{file_name}_CV_{sigma}_{strength}.png")
+    cv2.imwrite(output_path, sharpened)
+    return output_path
+
+
+def check_folder(folder_name):
+    folder_name = "enhanced_frames"
+    try:
+        os.mkdir(folder_name)
+        print(f"Created folder: {folder_name}")
+    except FileExistsError:
+        print(f"The folder '{folder_name}' already exists.")
+
+
+def sharp_frames():
+    check_folder("output_frames")
+    check_folder("enhanced_frames")
+
+    input_dir = r"..\Final Project\output_frames"
+    output_dir = r"..\Final Project\enhanced_frames"
+
+    start = time.time()
+    images = [f for f in os.listdir(input_dir) if f.endswith('.png')]
+
+    for file_name in images:
+        input_path = os.path.join(input_dir, file_name)
+        base_name = os.path.splitext(file_name)[0]
+        unsharp_mask(input_path, output_dir, base_name, SIGMA, STRENGTH)
+
+    end = time.time()
+
+    print(f"Processed {len(images)} images with OpenCV unsharp mask.")
+    print(f"Total time: {end - start:.2f} seconds")
+
+
+
+
 if __name__ == "__main__":
     start = time.time()
     print("Processing events...")
@@ -217,12 +275,15 @@ if __name__ == "__main__":
     else:
         print("No frames were generated")
 
+    print("Sharp frames...")
+    sharp_frames()
     print("Creating videos...")
+
     images_video, event_camera_video, merged_video_path = create_videos()
     merge_videos(images_video, event_camera_video,merged_video_path)
 
     end = time.time()
     elapsed_time = end - start
-    minutes = elapsed_time // 60
-    seconds = elapsed_time % 60
+    minutes = int(elapsed_time // 60)
+    seconds = int(elapsed_time % 60)
     print(f"{str(minutes).zfill(2)}:{str(seconds).zfill(2)}")
